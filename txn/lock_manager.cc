@@ -5,6 +5,7 @@
 // 'The Case for Determinism in Database Systems'.
 
 #include "txn/lock_manager.h"
+#include <algorithm>
 
 LockManagerA::LockManagerA(deque<Txn*>* ready_txns) {
   ready_txns_ = ready_txns;
@@ -14,7 +15,28 @@ bool LockManagerA::WriteLock(Txn* txn, const Key& key) {
   // CPSC 438/538:
   //
   // Implement this method!
-  return true;
+
+  LockRequest lr(EXCLUSIVE, txn);
+
+  // kalo gak ada di lock table
+  if(this->lock_table_.find(key) == this->lock_table_.end()) {
+    deque<LockRequest> h;
+    h.push_back(lr);
+    this->lock_table_[key] = &h;
+    return true;
+  } else {
+
+    // udah ada yg di queue, jadi gak bisa langsung granted
+    this->lock_table_[key]->push_back(lr);
+
+    if(this->txn_waits_.find(txn) == this->txn_waits_.end()) {
+      this->txn_waits_[txn] = 1;
+    } else {
+      this->txn_waits_[txn]++;
+    }
+
+    return false;
+  }
 }
 
 bool LockManagerA::ReadLock(Txn* txn, const Key& key) {
