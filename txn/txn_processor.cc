@@ -293,8 +293,77 @@ void TxnProcessor::RunMVCCScheduler() {
   // Hint:Pop a txn from txn_requests_, and pass it to a thread to execute. 
   // Note that you may need to create another execute method, like TxnProcessor::MVCCExecuteTxn. 
   //
-  // [For now, run serial scheduler in order to make it through the test
-  // suite]
-  RunSerialScheduler();
+  // [For now, run serial scheduler in order to make it through the test suite]
+  Txn *txn;
+  while (tp_.Active()) {
+    // Get the next new transaction request (if one is pending) and pass it to an execution thread.
+    if (txn_requests_.Pop(&txn)) {
+      // Run thread.
+      tp_.RunTask(new Method<TxnProcessor, void, Txn*>(this, &TxnProcessor::MVCCExecuteTxn, txn));
+    }
+  }
 }
 
+void TxnProcessor::MVCCExecuteTxn(Txn* txn) {
+  // Create a procedure to read elements from a particular set.
+  auto readElement = [&](set<Key>& curset) -> void {
+    for (auto& element : curset) {
+      // Iff record exist in storage, save it to each read result.
+      Value result;
+      storage_->Lock(element);
+      if (storage_->Read(element, &result, txn->unique_id_))
+        txn->reads_[element] = result;
+      storage_->Unlock(element);
+    }
+  };
+  // Read every element in readset and writeset.
+  readElement(txn->readset_), readElement(txn->writeset_);
+
+  // Execute txn's program logic.
+  txn->Run();
+
+  // Move txn back to the RunScheduler Tread.
+  completed_txns_.Push(txn);
+
+  MVCCLockWriteKeys(txn);
+  // Check to commit or restart.
+  if (MVCCCheckWrites(txn)) {
+    // Apply all writes then release all locks.
+    ApplyWrites(txn);
+    MVCCUnlockWriteKeys(txn);
+    // Mark transactions as commited.
+    txn->status_ = COMMITTED;
+    txn_results_.Push(txn);
+  } else {
+    // Release all locks.
+    MVCCUnlockWrites(txn);
+    // Cleanup txn
+    txn->reads_.clear(); txn->writes_.clear();
+    txn->status_ = INCOMPLETE;
+    // Restart
+    mutex_.Lock();
+    txn->unique_id_ = next_unique_id_++;
+    txn_requests_.Push(txn);
+    mutex_.Unlock();
+  }
+}
+
+bool TxnProcessor::MVCCCheckWrites(Txn* txn) {
+  for (auto& element : txn->writeset_) {
+    if (!(storage_->CheckWrite(element, txn->unique_id_)))
+      return false; // Optimize
+  }
+  return true;
+}
+
+void TxnProcessor::MVCCLockWriteKeys(Txn* txn) {
+  for (auto& element : txn->writeset_) {
+    storage_->Lock(element);
+  }
+}
+
+void TxnProcessor::MVCCUnlockWriteKeys(Txn* txn) {
+  for (auto& element : txn->writeset_) {
+    storage_->Unlock(element);
+  }
+}

@@ -42,6 +42,9 @@ class MVCCStorage : public Storage {
   
   virtual ~MVCCStorage();
 
+  // Gets maximum version Id from certain key, which is less or equal than unique ID
+  int getMaxVersionId(Key key, int txn_unique_id);
+
  private:
  
   friend class TxnProcessor;
