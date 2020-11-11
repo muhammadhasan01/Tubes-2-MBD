@@ -336,7 +336,7 @@ void TxnProcessor::MVCCExecuteTxn(Txn* txn) {
     txn_results_.Push(txn);
   } else {
     // Release all locks.
-    MVCCUnlockWrites(txn);
+    MVCCUnlockWriteKeys(txn);
     // Cleanup txn
     txn->reads_.clear(); txn->writes_.clear();
     txn->status_ = INCOMPLETE;
