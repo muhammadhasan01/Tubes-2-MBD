@@ -282,7 +282,47 @@ void TxnProcessor::RunOCCParallelScheduler() {
   //
   // [For now, run serial scheduler in order to make it through the test
   // suite]
-  RunSerialScheduler();
+
+  while(this->tp_.Active()) {
+    Txn *tx, *tx2;
+    if(this->txn_requests_.Pop(&tx)) {
+
+      this->tp_.RunTask(new Method<TxnProcessor, void, Txn*>(this, &TxnProcessor::ExecuteTxn, tx));
+    }
+
+    // saat sudah complete
+    while(this->completed_txns_.Pop(&tx2)) {
+      if(tx2->Status() == COMPLETED_A) {
+        tx2->status_ = ABORTED;
+      } else {
+        bool check = true;
+
+        for(auto&& a : tx2->readset_) {
+          if(tx2->occ_start_time_ < this->storage_->Timestamp(a)) check = false;
+        }
+
+        for(auto && a : tx2->writeset_) {
+          if(tx2->occ_start_time_ < this->storage_->Timestamp(a)) check = false;
+        }
+
+        if(check) {
+          // lakukan commit
+          ApplyWrites(tx2);
+          tx->status_ = COMMITTED;
+        } else {
+          tx2->reads_.empty();
+          tx2->writes_.empty();
+          tx2->status_ = INCOMPLETE;
+
+          this->mutex_.Lock();
+          tx->unique_id_ = next_unique_id_++;
+
+          this->txn_requests_.Push(tx2);
+          this->mutex_.Unlock();
+        }
+      }
+    }
+  }
 }
 
 void TxnProcessor::RunMVCCScheduler() {
