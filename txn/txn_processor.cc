@@ -268,21 +268,6 @@ void TxnProcessor::RunOCCScheduler() {
   // [For now, run serial scheduler in order to make it through the test
   // suite]
 
-  RunSerialScheduler();
-}
-
-void TxnProcessor::RunOCCParallelScheduler() {
-  // CPSC 438/538:
-  //
-  // Implement this method! Note that implementing OCC with parallel
-  // validation may need to create another method, like
-  // TxnProcessor::ExecuteTxnParallel.
-  // Note that you can use active_set_ and active_set_mutex_ we provided
-  // for you in the txn_processor.h
-  //
-  // [For now, run serial scheduler in order to make it through the test
-  // suite]
-
   while(this->tp_.Active()) {
     Txn *tx, *tx2;
     if(this->txn_requests_.Pop(&tx)) {
@@ -323,6 +308,20 @@ void TxnProcessor::RunOCCParallelScheduler() {
       }
     }
   }
+}
+
+void TxnProcessor::RunOCCParallelScheduler() {
+  // CPSC 438/538:
+  //
+  // Implement this method! Note that implementing OCC with parallel
+  // validation may need to create another method, like
+  // TxnProcessor::ExecuteTxnParallel.
+  // Note that you can use active_set_ and active_set_mutex_ we provided
+  // for you in the txn_processor.h
+  //
+  // [For now, run serial scheduler in order to make it through the test
+  // suite]
+  RunSerialScheduler();
 }
 
 void TxnProcessor::RunMVCCScheduler() {
