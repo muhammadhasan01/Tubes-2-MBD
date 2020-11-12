@@ -78,10 +78,10 @@ void Benchmark(const vector<LoadGen*>& lg) {
   int active_txns = 100;
   deque<Txn*> doneTxns;
 
+  vector<int> listOfTest = {1, 3, 5};
   // For each MODE...
-  for (CCMode mode = SERIAL;
-      mode <= MVCC;
-      mode = static_cast<CCMode>(mode+1)) {
+  for(auto dd : listOfTest) {
+    CCMode mode = static_cast<CCMode>(dd);
     // Print out mode name.
     cout << ModeToString(mode) << flush;
 
@@ -142,11 +142,11 @@ int main(int argc, char** argv) {
   cpu_set_t cs;
   CPU_ZERO(&cs);
   CPU_SET(7, &cs);
-  int ret = sched_setaffinity(0, sizeof(cs), &cs);
-  if (ret) {
-    perror("sched_setaffinity");
-    assert(false);
-  }
+  //int ret = sched_setaffinity(0, sizeof(cs), &cs);
+  // if (ret) {
+  //   perror("sched_setaffinity");
+  //   assert(false);
+  // }
 
   vector<LoadGen*> lg;
 
