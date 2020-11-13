@@ -261,13 +261,6 @@ void TxnProcessor::ApplyWrites(Txn* txn) {
 }
 
 void TxnProcessor::RunOCCScheduler() {
-  // CPSC 438/538:
-  //
-  // Implement this method!
-  //
-  // [For now, run serial scheduler in order to make it through the test
-  // suite]
-
   while(this->tp_.Active()) {
     Txn *tx, *tx2;
     if(this->txn_requests_.Pop(&tx)) {
@@ -306,7 +299,11 @@ void TxnProcessor::RunOCCScheduler() {
           this->mutex_.Unlock();
         }
       }
+
+      this->txn_results_.Push(tx2);
     }
+
+
   }
 }
 
